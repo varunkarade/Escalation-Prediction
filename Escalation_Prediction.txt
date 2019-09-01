@@ -1,0 +1,66 @@
+import pandas as pd 
+import numpy as np
+import matplotlib.pyplot as plt
+
+escalation = pd.read_csv("escalated_not_escalated.csv", delimiter="|",encoding="ISO-8859-1")
+escalation = escalation.drop(columns=['ID','Submitter'])
+
+escalation.isnull().sum()
+
+escalation = escalation.fillna("")
+
+y = escalation['Real_Val']
+X = escalation[escalation.columns.difference(['Real_Val'])]
+
+from sklearn.model_selection import train_test_split
+
+
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size = 0.2, random_state = 8834)
+
+from sklearn.feature_extraction.text import TfidfVectorizer
+
+summary_vectorizer = TfidfVectorizer(min_df=10,max_df=0.1)
+description_vectorizer = TfidfVectorizer(min_df=10,max_df=0.1)
+worklog_vectorizer = TfidfVectorizer(min_df=10,max_df=0.1)
+
+summary_vectorizer.fit(X_train['Summary'])
+description_vectorizer.fit(X_train['Description'])
+worklog_vectorizer.fit(X_train['Worklog'])
+
+
+X_train_summary = summary_vectorizer.transform(X_train['Summary']).toarray()
+X_train_description = description_vectorizer.transform(X_train['Description']).toarray()
+X_train_worklog = worklog_vectorizer.transform(X_train['Worklog']).toarray()
+
+
+X_test_summary = summary_vectorizer.transform(X_test['Summary']).toarray()
+X_test_description = description_vectorizer.transform(X_test['Description']).toarray()
+X_test_worklog = worklog_vectorizer.transform(X_test['Worklog']).toarray()
+
+X_train_tf = np.concatenate((X_train_summary, X_train_description, X_train_worklog), axis=1)
+X_test_tf = np.concatenate((X_test_summary, X_test_description, X_test_worklog), axis=1)
+
+from sklearn.linear_model import LogisticRegression
+
+logit = LogisticRegression(class_weight='balanced')
+logit.fit(X_train_tf,y_train)
+
+train_pred = logit.predict(X_train_tf)
+test_pred = logit.predict(X_test_tf)
+
+from sklearn.metrics import confusion_matrix, classification_report, accuracy_score, roc_auc_score
+
+
+print("Train")
+print("Accuracy",accuracy_score(y_train,train_pred))
+# print("AUC",roc_auc_score(y_train,train_pred))
+print(confusion_matrix(y_train,train_pred))
+print(classification_report(y_train,train_pred))
+
+# print("OOB Score", rfc_50.oob_score_)
+
+print("Test")
+print("Accuracy",accuracy_score(y_test,test_pred))
+# print("AUC",roc_auc_score(y_test,test_pred))
+print(confusion_matrix(y_test,test_pred))
+print(classification_report(y_test,test_pred))
